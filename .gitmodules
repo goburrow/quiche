@@ -1,0 +1,3 @@
+[submodule "deps/quiche"]
+	path = deps/quiche
+	url = https://github.com/cloudflare/quiche
