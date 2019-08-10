@@ -62,8 +62,8 @@ func (c *Config) LogKeys() {
 
 // SetApplicationProtos configures the list of supported application protocols.
 func (c *Config) SetApplicationProtos(protos []byte) error {
-	cp := cbytes(protos)
-	err := C.quiche_config_set_application_protos((*C.quiche_config)(c), cp, C.size_t(len(protos)))
+	err := C.quiche_config_set_application_protos((*C.quiche_config)(c),
+		cbytes(protos), clen(protos))
 	if err != 0 {
 		return Error(err)
 	}

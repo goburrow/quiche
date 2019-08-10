@@ -17,14 +17,13 @@ type Connection C.quiche_conn
 
 // Accept creates a new server-side connection.
 func Accept(scid []byte, odcid []byte, config *Config) *Connection {
-	scidp := cbytes(scid)
 	// odcid is optional
 	var odcidp *C.uint8_t
 	if odcid != nil {
 		odcidp = cbytes(odcid)
 	}
-	conn := C.quiche_accept(scidp, C.size_t(len(scid)),
-		odcidp, C.size_t(len(odcid)),
+	conn := C.quiche_accept(cbytes(scid), clen(scid),
+		odcidp, clen(odcid),
 		(*C.quiche_config)(config))
 
 	return (*Connection)(conn)
@@ -37,10 +36,8 @@ func Connect(serverName string, scid []byte, config *Config) *Connection {
 	if serverName != "" {
 		snp = C.CString(serverName)
 	}
-	scidp := cbytes(scid)
-
 	conn := C.quiche_connect(snp,
-		scidp, C.size_t(len(scid)),
+		cbytes(scid), clen(scid),
 		(*C.quiche_config)(config))
 	if snp != nil {
 		C.free(unsafe.Pointer(snp))
@@ -50,9 +47,8 @@ func Connect(serverName string, scid []byte, config *Config) *Connection {
 
 // Recv processes QUIC packets received from the peer.
 func (c *Connection) Recv(b []byte) (int, error) {
-	bp := cbytes(b)
 	n := C.quiche_conn_recv((*C.quiche_conn)(c),
-		bp, C.size_t(len(b)))
+		cbytes(b), clen(b))
 	if n < 0 {
 		return 0, Error(n)
 	}
@@ -61,9 +57,8 @@ func (c *Connection) Recv(b []byte) (int, error) {
 
 // Send writes a single QUIC packet to be sent to the peer.
 func (c *Connection) Send(b []byte) (int, error) {
-	bp := cbytes(b)
 	n := C.quiche_conn_send((*C.quiche_conn)(c),
-		bp, C.size_t(len(b)))
+		cbytes(b), clen(b))
 	if n < 0 {
 		return 0, Error(n)
 	}
@@ -72,11 +67,10 @@ func (c *Connection) Send(b []byte) (int, error) {
 
 // StreamRecv reads contiguous data from a stream.
 func (c *Connection) StreamRecv(streamID uint64, b []byte) (int, bool, error) {
-	bp := cbytes(b)
 	var fin C.bool
 	n := C.quiche_conn_stream_recv((*C.quiche_conn)(c),
 		C.uint64_t(streamID),
-		bp, C.size_t(len(b)),
+		cbytes(b), clen(b),
 		&fin)
 	if n < 0 {
 		return 0, false, Error(n)
@@ -86,10 +80,9 @@ func (c *Connection) StreamRecv(streamID uint64, b []byte) (int, bool, error) {
 
 // StreamSend writes data to a stream.
 func (c *Connection) StreamSend(streamID uint64, b []byte, fin bool) (int, error) {
-	bp := cbytes(b)
 	n := C.quiche_conn_stream_send((*C.quiche_conn)(c),
 		C.uint64_t(streamID),
-		bp, C.size_t(len(b)),
+		cbytes(b), clen(b),
 		C.bool(fin))
 	if n < 0 {
 		return 0, Error(n)
@@ -145,11 +138,10 @@ func (c *Connection) OnTimeout() {
 
 // Close closes the connection with the given error and reason.
 func (c *Connection) Close(app bool, errCode uint16, reason []byte) error {
-	rp := cbytes(reason)
 	n := C.quiche_conn_close((*C.quiche_conn)(c),
 		C.bool(app),
 		C.uint16_t(errCode),
-		rp, C.size_t(len(reason)))
+		cbytes(reason), clen(reason))
 	if n < 0 {
 		return Error(n)
 	}
@@ -178,16 +170,14 @@ func (c *Connection) IsClosed() bool {
 }
 
 // Stats collects and returns statistics about the connection.
-func (c *Connection) Stats() Stats {
+func (c *Connection) Stats(stats *Stats) {
 	var s C.quiche_stats
 	C.quiche_conn_stats((*C.quiche_conn)(c), &s)
-	return Stats{
-		Recv: uint64(s.recv),
-		Sent: uint64(s.sent),
-		Lost: uint64(s.lost),
-		RTT:  time.Duration(s.rtt) * time.Nanosecond,
-		CWnd: uint64(s.cwnd),
-	}
+	stats.Recv = uint64(s.recv)
+	stats.Sent = uint64(s.sent)
+	stats.Lost = uint64(s.lost)
+	stats.RTT = time.Duration(s.rtt) * time.Nanosecond
+	stats.CWnd = uint64(s.cwnd)
 }
 
 // Free frees the connection object.

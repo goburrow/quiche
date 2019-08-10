@@ -68,13 +68,15 @@ func TestHandshake(t *testing.T) {
 	if !bytes.Equal(clientProto, serverProto) {
 		t.Fatalf("unmatched protocols: client=%x server=%x", clientProto, serverProto)
 	}
-	stats := client.Stats()
+	var stats Stats
+	client.Stats(&stats)
 	t.Logf("client stats: %s", &stats)
-	stats = server.Stats()
+	server.Stats(&stats)
 	t.Logf("server stats: %s", &stats)
 }
 
 func BenchmarkHandshake(b *testing.B) {
+	b.ReportAllocs()
 	config, err := defaultConfig()
 	if err != nil {
 		b.Fatal(err)
@@ -84,8 +86,6 @@ func BenchmarkHandshake(b *testing.B) {
 	serverCID := randomCID()
 	buf := make([]byte, 65535)
 
-	b.ReportAllocs()
-	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		client := Connect("", clientCID, config)
 		server := Accept(serverCID, nil, config)
