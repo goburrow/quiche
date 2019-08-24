@@ -19,3 +19,9 @@ Build dependencies:
 cd deps/quiche
 cargo build --release
 ```
+
+To build application using this Go library:
+```
+GO_LDFLAGS="-L/absolute/path/to/libquiche" go build
+```
+
