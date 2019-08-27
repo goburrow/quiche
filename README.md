@@ -20,8 +20,11 @@ cd deps/quiche
 cargo build --release
 ```
 
-To build application using this Go library:
+
+Build application using this Go library:
+
 ```
 GO_LDFLAGS="-L/absolute/path/to/libquiche" go build
 ```
 
+To create a static binary, `CGO_LDFLAGS` may need to include `-ldl` (Linux) or `-framework Security` (MacOS)

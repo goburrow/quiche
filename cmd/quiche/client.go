@@ -81,7 +81,7 @@ func (c *client) connect() error {
 			}
 			c.recvStream(buf)
 		}
-		err = c.send(buf)
+		err = c.send(buf[:maxDatagramSize])
 		if err != nil {
 			return err
 		}
@@ -138,7 +138,6 @@ func (c *client) recvStream(buf []byte) {
 }
 
 func (c *client) send(buf []byte) error {
-	buf = buf[:maxDatagramSize]
 	for {
 		n, err := c.conn.Send(buf)
 		if err == quiche.ErrDone {
@@ -159,7 +158,7 @@ func clientCommand(args []string) error {
 	verbose := cmd.Bool("v", false, "enable debug logging")
 	wireVersion := cmd.Uint("wire-version", quiche.ProtocolVersion, "the version number to send to the server")
 	noVerify := cmd.Bool("no-verify", false, "don't verify server's certificate")
-	serverAddr := cmd.String("url", "localhost:4433", "QUIC server address")
+	serverAddr := cmd.String("url", "127.0.0.1:4433", "QUIC server address")
 	cmd.Parse(args)
 
 	if *verbose {

@@ -73,7 +73,7 @@ func (s *server) listen() error {
 			log.Printf("got %d bytes", n)
 			s.recv(buf[:n], addr, &header)
 		}
-		s.send(buf)
+		s.send(buf[:maxDatagramSize])
 		s.close()
 	}
 }
@@ -149,7 +149,7 @@ func (s *server) recv(buf []byte, addr net.Addr, h *quiche.Header) {
 		return
 	}
 	if c.conn.IsEstablished() {
-		s.recvStream(c.conn, buf)
+		s.recvStream(c.conn, buf[:cap(buf)])
 	}
 }
 
@@ -161,7 +161,7 @@ func (s *server) headerInfo(buf []byte, h *quiche.Header) error {
 }
 
 func (s *server) negotiate(addr net.Addr, h *quiche.Header, buf []byte) error {
-	n, err := quiche.NegotiateVersion(h.SCID, h.DCID, buf[:maxDatagramSize])
+	n, err := quiche.NegotiateVersion(h.SCID, h.DCID, buf)
 	if err != nil {
 		return err
 	}
@@ -171,7 +171,7 @@ func (s *server) negotiate(addr net.Addr, h *quiche.Header, buf []byte) error {
 
 func (s *server) retry(addr net.Addr, h *quiche.Header, scid, buf []byte) error {
 	token := s.mintToken(addr, h)
-	n, err := quiche.Retry(h.SCID, h.DCID, scid, token, buf[:maxDatagramSize])
+	n, err := quiche.Retry(h.SCID, h.DCID, scid, token, buf)
 	if err != nil {
 		return err
 	}
@@ -202,7 +202,6 @@ func (s *server) validateToken(addr net.Addr, token []byte) []byte {
 }
 
 func (s *server) recvStream(conn *quiche.Connection, buf []byte) {
-	buf = buf[:cap(buf)]
 	for {
 		id, ok := conn.ReadableNext()
 		if !ok {
@@ -214,7 +213,7 @@ func (s *server) recvStream(conn *quiche.Connection, buf []byte) {
 			continue
 		}
 		log.Printf("stream %d has %d bytes (fin=%v)\n%s", id, n, fin, buf[:n])
-		_, err = conn.StreamSend(httpRequestStreamID, []byte("Not Found"), true)
+		_, err = conn.StreamSend(id, []byte("Not Found"), true)
 		if err != nil {
 			log.Printf("stream send failed: %v", err)
 			conn.Close(false, 0x1, []byte("fail"))
@@ -223,7 +222,6 @@ func (s *server) recvStream(conn *quiche.Connection, buf []byte) {
 }
 
 func (s *server) send(buf []byte) error {
-	buf = buf[:maxDatagramSize]
 	for _, c := range s.conns {
 		n, err := c.conn.Send(buf)
 		if err == quiche.ErrDone {
@@ -259,7 +257,7 @@ func (s *server) close() {
 func serverCommand(args []string) error {
 	cmd := flag.NewFlagSet("server", flag.ExitOnError)
 	verbose := cmd.Bool("v", false, "enable debug logging")
-	listenAddr := cmd.String("listen", "localhost:4433", "listen on the given IP:port")
+	listenAddr := cmd.String("listen", "127.0.0.1:4433", "listen on the given IP:port")
 	certFile := cmd.String("cert", "cert.crt", "TLS certificate path")
 	keyFile := cmd.String("key", "cert.key", "TLS certificate key path")
 	rootPath := cmd.String("root", ".", "root directory")
